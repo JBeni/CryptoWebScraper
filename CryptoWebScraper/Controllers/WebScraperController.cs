@@ -1,76 +1,127 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using CryptoWebScraper.Models;
+using HtmlAgilityPack;
+using Microsoft.AspNetCore.Mvc;
 
 namespace CryptoWebScraper.Controllers
 {
+    [ApiController]
+    [Route("[controller]")]
     public class WebScraperController : Controller
     {
-        public IActionResult Index()
+        private readonly string url = "https://coinmarketcap.com/all/views/all/";
+        private readonly string currencyUrl = "https://coinmarketcap.com/currencies/";
+
+        [HttpGet("cryptocurrency/{cryptoName}")]
+        public IActionResult GetCryptocurrencyPrice(string cryptoName)
         {
-            return View();
-        }
-    }
+            List<CryptoCurrency> cryptocurrencies = new();
 
-
-/*
-
-{
-    var directory = Directory.GetParent(Directory.GetCurrentDirectory()).Parent.Parent.Parent.FullName;
-
-    HtmlWeb web = new HtmlWeb();
-    HtmlDocument doc = web.Load("https://unsplash.com/");
-
-    var HeaderNames = doc.DocumentNode.SelectNodes("//img");
-
-    var titles = new List<Row>();
-    var index = 0;
-    Stopwatch stopWatch = new Stopwatch();
-    stopWatch.Start();
-    foreach (var item in HeaderNames)
-    {
-        var urlDownload = item.GetAttributes("src").ToList();
-        titles.Add(new Row { Title = urlDownload[0].Value });
-
-        if (index > 0)
-        {
-            HttpClient client = new();
-            Stream stream = await client.GetStreamAsync(urlDownload[0].Value);
-
-            if (!urlDownload[0].Value.Contains(".gif"))
+            HtmlWeb web = new();
+            HtmlDocument htmlDocument = web.Load(url);
+            var ranks = htmlDocument.DocumentNode.SelectNodes("//td[contains(@class, 'cmc-table__cell--sort-by__rank')]//div").ToList();
+            var names = htmlDocument.DocumentNode.SelectNodes("//a[contains(@class, 'cmc-table__column-name--name cmc-link')]").ToList();
+            var symbols = htmlDocument.DocumentNode.SelectNodes("//td[contains(@class, 'cmc-table__cell--sort-by__symbol')]//div").ToList();
+            var prices = htmlDocument.DocumentNode.SelectNodes("//div[contains(@class, 'sc-131di3y-0 cLgOOr')]/a[contains(@class, 'cmc-link')]").ToList();
+            for (int index = 0; index < names.Count - 1; index++)
             {
-                Image img = System.Drawing.Image.FromStream(stream);
-                img.Save(directory + $"\\images\\image_{index}.jpg", ImageFormat.Jpeg);
+                if (cryptoName.ToLower() == names[index].InnerText.ToLower())
+                {
+                    cryptocurrencies.Add(new CryptoCurrency
+                    {
+                        Index = index,
+                        Rank = int.Parse(ranks[index].InnerText),
+                        Symbol = symbols[index].InnerText,
+                        CurrencyName = names[index].InnerText,
+                        Price = prices[index].InnerText
+                    });
+                    return Ok(cryptocurrencies);
+                }
             }
+            return Ok();
         }
-        index++;
+
+        [HttpGet("cryptocurrencies")]
+        public IActionResult GetCryptocurrencies()
+        {
+            List<CryptoCurrency> cryptocurrencies = new();
+
+            HtmlWeb web = new();
+            HtmlDocument htmlDocument = web.Load(url);
+            var ranks = htmlDocument.DocumentNode.SelectNodes("//td[contains(@class, 'cmc-table__cell--sort-by__rank')]//div").ToList();
+            var names = htmlDocument.DocumentNode.SelectNodes("//a[contains(@class, 'cmc-table__column-name--name cmc-link')]").ToList();
+            var symbols = htmlDocument.DocumentNode.SelectNodes("//td[contains(@class, 'cmc-table__cell--sort-by__symbol')]//div").ToList();
+            var prices = htmlDocument.DocumentNode.SelectNodes("//div[contains(@class, 'sc-131di3y-0 cLgOOr')]/a[contains(@class, 'cmc-link')]").ToList();
+            for (int index = 0; index < names.Count - 1; index++)
+            {
+                cryptocurrencies.Add(new CryptoCurrency {
+                    Index = index,
+                    Rank = int.Parse(ranks[index].InnerText),
+                    Symbol = symbols[index].InnerText,
+                    CurrencyName = names[index].InnerText,
+                    Price = prices[index].InnerText
+                });
+            }
+            return Ok(cryptocurrencies);
+        }
+
+        [HttpGet("cryptocurrencyHistoricalData/{cryptoName}")]
+        public IActionResult GetCryptocurrencyHistoricalData(string cryptoName)
+        {
+            List<CryptoCurrencyHistoricalData> data = new();
+
+            HtmlWeb web = new();
+            HtmlDocument htmlDocument = web.Load(currencyUrl + cryptoName + "/historical-data/");
+            var body = htmlDocument.DocumentNode.SelectNodes("//body").ToList();
+
+            var div = body[0].ChildNodes[0];
+            var div1 = div.ChildNodes[0];
+            var div2 = div1.ChildNodes[0];
+            var div3 = div2.ChildNodes[1];
+            var div4 = div3.ChildNodes[0];
+            var div5 = div4.ChildNodes[2];
+
+            //var div6 = div5.ChildNodes[1];
+            //var div7 = div6.ChildNodes[0];
+            //var div8 = div7.ChildNodes[0];
+            //var table = div8.ChildNodes[0];
+
+            return Ok(data);
+        }
+
+        [HttpGet("cryptocurrencyInfo/{name}")]
+        public IActionResult GetCryptocurrencyInfo(string name)
+        {
+            List<CryptoCurrencyInfo> cryptocurrency = new();
+
+            HtmlWeb web = new();
+            HtmlDocument htmlDocument = web.Load(currencyUrl + name);
+
+            var liveData = htmlDocument.DocumentNode.SelectNodes("//h2[contains(@class, 'sc-1q9q90x-0 jCInrl')]").ToList();
+            var allData = htmlDocument.DocumentNode.SelectNodes("//div[contains(@class, 'sc-2qtjgt-0 eApVPN')]//div").ToList();
+            var articlesTitle = htmlDocument.DocumentNode.SelectNodes($"//div[contains(@class, 'sc-101ku0o-2 exKUGw')]//p").ToList();
+            var articlesList = htmlDocument.DocumentNode.SelectNodes($"//div[contains(@class, 'sc-101ku0o-2 exKUGw')]//ul").ToList();
+
+            string message = "";
+
+            message += liveData[1].InnerText + "\n\n";
+            message += liveData[1].NextSibling.InnerText + "\n\n";
+            message += liveData[1].NextSibling.NextSibling.InnerText + "\n\n\n";
+
+            foreach (var item in allData[0].ChildNodes)
+            {
+                message += item.InnerText + "\n\n";
+            }
+            message += articlesTitle[0].InnerText + "\n";
+            foreach (var item in articlesList[0].ChildNodes)
+            {
+                message += "\t* " + item.InnerText + "\n";
+            }
+
+            cryptocurrency.Add(new CryptoCurrencyInfo
+            {
+                Message = message,
+            });
+            return Ok(cryptocurrency);
+        }
     }
-    stopWatch.Stop();
-    TimeSpan ts = stopWatch.Elapsed;
-    string elapsedTime = String.Format("{0:00}:{1:00}:{2:00}.{3:00}",
-        ts.Hours, ts.Minutes, ts.Seconds,
-        ts.Milliseconds / 10);
-    Console.WriteLine("RunTime: " + elapsedTime);
-
-    using (var writer = new StreamWriter(Path.Combine(directory, "example.csv")))
-    using (var csv = new CsvWriter(writer, CultureInfo.InvariantCulture))
-    {
-        csv.WriteRecords(titles);
-    }
-
-
-    Console.WriteLine("Operation Ended...");
-    Console.ReadKey();
-}
-
-class Row
-{
-    public string? Title { get; set; }
-}
-
-*/
-
-
-
-
-
-
 }
