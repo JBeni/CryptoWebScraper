@@ -1,6 +1,6 @@
 # CryptoWebScraper
 
-* Crypto WebScraper from Coinbase
+* Crypto WebScraper from coinmarketcap
 
 * Getting price for cryptocurrencies
 * Getting infos for every cryptocurrency, all using web scraping
